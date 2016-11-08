@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>uploadimg-demo</title>
+</head>
+<body>
+<button id="my_test">my_test</button>
+<button id="my_test2">my_test2</button>
+<input type="file" name="demo_input" id="demo_input" style="display:none">
+<input type="file" id="demo_input2" style="display:none">
+<hr>
+<img src="/img/0.png" id="tt_mm">
+<img src="/img/1.png" id="tt_mm2">
+<p id="p_num"></p>
+</body>
+</html>
+<script src="js/jquery-2.2.4.min.js"></script>
+<script src="js/ImgCompress.js"></script>
+<script src="js/tool-js.js"></script>
+<script>
+    /*window.onload=function(){
+        ImgCompress('demo_input','tt_mm',"300",callback);
+        ImgCompress('demo_input2','tt_mm',"100",callback);
+     };*/
+    function callback(src){
+//            p(src);
+    }
+    $(function(){
+        $("#my_test").click(function(){
+            $("#demo_input").click();
+        });
+        $("#demo_input").click(function(){
+            ImgCompress('demo_input','tt_mm',"100",callback);
+        });
+        $("#my_test2").click(function(){
+            $("#demo_input2").click();
+        });
+        $("#demo_input2").click(function(){
+            ImgCompress('demo_input2','tt_mm2',"200");
+        });
+        function callback2(src){
+            p(src);
+        }
+
+    });
+</script>

@@ -1,0 +1,72 @@
+#取消不需要上传文件
+
+#img下的图片
+#public/img
+
+#公共部分
+logs
+*!logs/readme.md
+
+#shell 日志路径
+shell/logs/
+*!shell/logs/readme.md
+
+# --------------------
+# PhpStorm Files
+# --------------------
+.idea/
+
+# --------------------
+# Eclipse Files
+# --------------------
+.buildpath
+.project
+.metadata
+*.bak
+.classpath
+.settings/
+
+# --------------------
+# Composer Files
+# --------------------
+vendor/composer/
+vendor/autoload.php
+
+# --------------------
+# OSX Files
+# --------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# --------------------
+# Windows Files
+# --------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# --------------------
+# Sublime Text Files
+# --------------------
+*.sublime-project
+*.sublime-workspace
+
+# --------------------
+# IntelliJ Files
+# --------------------
+*.iml
+*.ipr
+*.iws
+.idea/
+out/
