@@ -1,14 +1,12 @@
 <?php
-
 /**
  * Created by PhpStorm.
  * User: AF
- * Date: 2016/6/14
- * Time: 22:48
- * @version 1.0.3
- * @function 参数化查询的类
+ * Date: 2016/6/17
+ * Time: 10:41
  */
-class MysqliStmt
+
+abstract class MysqliAbstract
 {
     /**
      * @var mysqli
@@ -16,13 +14,25 @@ class MysqliStmt
     private $link;
 
     /**
-     * 初始化数据库连接
-     * @throws Exception
+     * 获取表名
+     * @return mixed
      */
-    function __construct(){
-        $defaultDb= require _BASE_PATH.'/library/config/db.config.php';
+    abstract protected function _getTableName();
+
+    /**
+     * 默认字段
+     * @return mixed
+     */
+    abstract protected function _tableDefaultId();
+
+    /**
+     * 初始化数据库连接
+     * MysqliAbstract constructor.
+     */
+    public function __construct(){
+        $defaultDb= require _BASE_PATH.'/libs/config/db.config.php';
         $config=$defaultDb['default_db'];
-        $conn=new \mysqli($config['db_host'],$config['db_user'],$config['db_pwd'],$config['db_name'],$config['port']);
+        $conn=new mysqli($config['db_host'],$config['db_user'],$config['db_pwd'],$config['db_name'],$config['port']);
         if($conn->errno){
             throw new Exception('数据连接错误，原因：'.$conn->error);
         }
@@ -42,12 +52,11 @@ class MysqliStmt
     /**
      * 插入数据库
      * @link https://bugs.php.net/bug.php?id=43568
-     * @param string $table 表名
      * @param array $data 数组格式 数据格式为：数据库字段为键值，键值值为需要插入的值的数组，类似 array('id'=>'000','name'=>'test')
      * @return bool
      * @throws Exception
      */
-    public function insert($table,$data){
+    public function insert($data){
         if(!is_array($data)||empty($data)){
             throw new Exception('插入数据格式有误');
         }
@@ -63,12 +72,11 @@ class MysqliStmt
         }
         $keyValue=implode(',', $keyArr);
         $tempWhy=implode(',',$tmpArr);
-        $sql='insert into '.$table.' ('.$keyValue.') values ('.$tempWhy.')';
+        $sql='insert into '.$this->_getTableName().' ('.$keyValue.') values ('.$tempWhy.')';
         $args[]=$bindType;
-        $parameterTmp=array_merge($args,$valueArr);
-        $parameter=self::refValues($parameterTmp);
+        $parameter=array_merge($args,$valueArr);
         $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), $parameter);
+        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
         $stmt->execute();
         $res=$this->link->affected_rows;
         $stmt->close();
@@ -80,13 +88,12 @@ class MysqliStmt
 
     /**
      * 根据id更新
-     * @param string $table 表名
      * @param string $id 需要更新的id
      * @param array $data 需要更新的数据 格式：数据库字段为键值，键值值为需要更新的值的数组，类似 array('sex'=>'1','name'=>'test')
      * @return bool
      * @throws Exception
      */
-    public function updateId($table,$id,$data){
+    public function updateId($id,$data){
         if(!is_array($data)||empty($data)){
             throw new Exception('根据id更新数据格式错误或者为空数组');
         }
@@ -99,14 +106,13 @@ class MysqliStmt
             $bindType.=$this->_determineType($value);
         }
         $keyValue=implode(',',$keyArr);
-        $sql='update '.$table.' set '.$keyValue.' where id=? ';
+        $sql='update '.$this->_getTableName().' set '.$keyValue.' where '.$this->_tableDefaultId().'=? ';
         $bindType.=$this->_determineType($id);
         $args[]=$bindType;
         array_push($valueArr,$id);
-        $parameterTmp=array_merge($args,$valueArr);
-        $parameter=self::refValues($parameterTmp);
+        $parameter=array_merge($args,$valueArr);
         $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), $parameter);
+        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
         $stmt->execute();
         $res=$this->link->affected_rows;
         $stmt->close();
@@ -118,13 +124,12 @@ class MysqliStmt
 
     /**
      * 条件更新语句
-     * @param string $table 表名
      * @param array $data 需要更新的数据 格式：数据库字段为键值，键值值为需要更新的值的数组，类似 array('sex'=>'1','name'=>'tt')
      * @param array $where 满足需要更新的条件 格式：数据库字段为键值，键值值为满足更新数据的值，类似 array('id'=>'king','name'=>'test')
      * @return bool
      * @throws Exception
      */
-    public function update($table,$data,$where){
+    public function update($data,$where){
         if(!is_array($data)||empty($data)||!is_array($where)||empty($where)){
             throw new Exception('条件数据数据格式错误或者为空数组');
         }
@@ -139,18 +144,17 @@ class MysqliStmt
         }
         $keyValue=implode(',',$keyArr);
         //拼装条件更新的数据
-        $whereData=$this->_andWhere($where);
-        $bindType.=$whereData['bind_type'];
-        $whereStr=$whereData['where_string'];
-        $whereValueArr=$whereData['where_value_arr'];
+        $whereData=$this->andWhere($where);
+        $bindType.=$whereData['bindType'];
+        $whereStr=$whereData['whereStr'];
+        $whereValueArr=$whereData['whereValueArr'];
         //拼装sql语句
-        $sql='update '.$table.' set '.$keyValue.' where '.$whereStr;//print_r($sql);die;
+        $sql='update '.$this->_getTableName().' set '.$keyValue.' where '.$whereStr;//print_r($sql);die;
         $args[]=$bindType;
         $bindData=array_merge($valueArr,$whereValueArr);
-        $parameterTmp=array_merge($args,$bindData);
-        $parameter=self::refValues($parameterTmp);
+        $parameter=array_merge($args,$bindData);
         $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), $parameter);
+        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
         $stmt->execute();
         $res=$this->link->affected_rows;
         $stmt->close();
@@ -162,12 +166,11 @@ class MysqliStmt
 
     /**
      * 根据id删除
-     * @param string $table 表名
      * @param string $id 需要删除数据的id
      * @return bool
      */
-    public function deleteId($table,$id){
-        $sql="delete from ".$table." where id=?";
+    public function deleteId($id){
+        $sql='delete from '.$this->_getTableName().' where '.$this->_tableDefaultId().'=?';
         $bindType=$this->_determineType($id);
         $stmt=$this->_prepare($sql);
         $stmt->bind_param($bindType,$id);
@@ -182,29 +185,27 @@ class MysqliStmt
 
     /**
      * 根据条件删除操作
-     * @param string $table 表名
      * @param array $where 满足删除数据的条件 格式：数据库字段为键值，键值值为满足删除数据的值，类似 array('id'=>'king','name'=>'test')
      * @return bool
      * @throws Exception
      */
-    public function delete($table,$where){
+    public function delete($where){
         if(!is_array($where)||empty($where)){
             throw new Exception('条件删除数据格式错误或者为空数组');
         }
         $bindType='';
         //拼装条件更新的数据
-        $whereData=$this->_andWhere($where);
-        $bindType.=$whereData['bind_type'];
-        $whereStr=$whereData['where_string'];
-        $whereValueArr=$whereData['where_value_arr'];
+        $whereData=$this->andWhere($where);
+        $bindType.=$whereData['bindType'];
+        $whereStr=$whereData['whereStr'];
+        $whereValueArr=$whereData['whereValueArr'];
         //sql语句拼装
-        $sql="delete from ".$table." where ".$whereStr;
+        $sql="delete from ".$this->_getTableName()." where ".$whereStr;
 
         $args[]=$bindType;
-        $parameterTmp=array_merge($args,$whereValueArr);
-        $parameter=self::refValues($parameterTmp);
+        $parameter=array_merge($args,$whereValueArr);
         $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), $parameter);
+        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
         $stmt->execute();
         $res=$this->link->affected_rows;
         $stmt->close();
@@ -216,7 +217,6 @@ class MysqliStmt
 
     /**
      * 条件查询
-     * @param string $table 表名
      * @param array $where 满足获取数据的条件 格式：数据库字段为键值，键值值为满足获得数据的值，类似 array('id'=>'king','name'=>'test')
      * @param array $order 排序 格式：需要排序的字段为数组键值，降序（desc）或者升序（asc）的为对应键值的值 类似 array('id'=>'desc','name'=>'asc')
      * @param int $offset 跳过的页数
@@ -226,7 +226,7 @@ class MysqliStmt
      * @return array
      * @throws Exception
      */
-    public function select($table,$where,$order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
+    public function fetchWhere($where,$order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
         if(!is_array($where)||empty($where)||!is_array($order)||!is_array($orWhere)){
             throw new Exception('条件查询数据格式错误，请检查');
         }
@@ -235,18 +235,18 @@ class MysqliStmt
         }
         //拼装where数据
         $bindType='';
-        $whereData=$this->_andWhere($where);
-        $bindType.=$whereData['bind_type'];
-        $whereStr=$whereData['where_string'];
-        $whereValueArr=$whereData['where_value_arr'];
-        $sql='select '.implode(',',$getInfo).' from '.$table.' where '.$whereStr;
+        $whereData=$this->andWhere($where);
+        $bindType.=$whereData['bindType'];
+        $whereStr=$whereData['whereStr'];
+        $whereValueArr=$whereData['whereValueArr'];
+        $sql='select '.implode(',',$getInfo).' from '.$this->_getTableName().' where '.$whereStr;
         //拼装orWhere数据
         $whereOrValueArr=array();
         if(!empty($orWhere)){
-            $orWhereData=$this->_orWhere($orWhere);
-            $bindType.=$orWhereData['bind_type'];
-            $whereOrStr=$orWhereData['where_string'];
-            $whereOrValueArr=$orWhereData['where_value_arr'];
+            $orWhereData=$this->orWhere($orWhere);
+            $bindType.=$orWhereData['bindType'];
+            $whereOrStr=$orWhereData['whereStr'];
+            $whereOrValueArr=$orWhereData['whereValueArr'];
             $sql.=' or '.$whereOrStr;
         }
         if(!empty($order)){
@@ -261,10 +261,9 @@ class MysqliStmt
         }
         $args[]=$bindType;
         $bindData=array_merge($whereValueArr,$whereOrValueArr);
-        $parameterTmp=array_merge($args,$bindData);
-        $parameter=self::refValues($parameterTmp);
+        $parameter=array_merge($args,$bindData);
         $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), $parameter);
+        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
         $stmt->execute();
         $returnData=$this->_dynamicBindResults($stmt);
         $stmt->free_result();
@@ -274,8 +273,6 @@ class MysqliStmt
 
     /**
      * 如果不传任何参数默认查询所有
-     * data format fetchAll('test1',array('id'=>'desc','name'=>'asc'),0,10,array(),array('id'=>'000','name'=>'liang'))
-     * @param string $table 表名
      * @param array $order 排序 格式：需要排序的字段为数组键值，降序（desc）或者升序（asc）的为对应键值的值 类似 array('id'=>'desc','name'=>'asc')
      * @param int $offset 跳过的页数
      * @param int $fetchNum 需要查询出来的记录条数 默认全部
@@ -284,7 +281,7 @@ class MysqliStmt
      * @return array
      * @throws Exception
      */
-    public function selectAll($table,$order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
+    public function fetchAll($order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
         if(!is_array($order)||!is_array($orWhere)){
             throw new Exception('查询所有数据格式错误，请检查');
         }
@@ -292,13 +289,13 @@ class MysqliStmt
             $getInfo=array('*');
         }
         $bindType='';
-        $sql="select ".implode(',',$getInfo).' from '.$table;
+        $sql="select ".implode(',',$getInfo).' from '.$this->_getTableName();
         $whereOrValueArr=array();
         if(!empty($orWhere)){
-            $retOrData=$this->_orWhere($orWhere);
-            $bindType.=$retOrData['bind_type'];
-            $whereOrStr=$retOrData['where_string'];
-            $whereOrValueArr=$retOrData['where_value_arr'];
+            $retOrData=$this->orWhere($orWhere);
+            $bindType.=$retOrData['bindType'];
+            $whereOrStr=$retOrData['whereStr'];
+            $whereOrValueArr=$retOrData['whereValueArr'];
             $sql.=' where '.$whereOrStr;
         }
         if(!empty($order)){
@@ -313,10 +310,9 @@ class MysqliStmt
         }
         if(!empty($whereOrValueArr)){
             $args[]=$bindType;
-            $parameterTmp=array_merge($args,$whereOrValueArr);
-            $parameter=self::refValues($parameterTmp);
+            $parameter=array_merge($args,$whereOrValueArr);
             $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), $parameter);
+            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
             $stmt->execute();
         }else{
             $stmt=$this->_prepare($sql);
@@ -330,16 +326,15 @@ class MysqliStmt
 
     /**
      * 根据id查询 返回一维数组或空
-     * @param string $table 表名
      * @param string $id 获取数据的id
      * @param array $getInfo 需要查询出来的字段 无键值的数组 填写需要查询的字段即可 类似 array('id','name')
      * @return array
      */
-    public function selectId($table,$id,$getInfo=array('*')){
+    public function fetchId($id,$getInfo=array('*')){
         if(empty($getInfo)||!is_array($getInfo)){
             $getInfo=array('*');
         }
-        $sql="select ".implode(',',$getInfo).' from '.$table." where id=?";
+        $sql="select ".implode(',',$getInfo).' from '.$this->_getTableName()." where ".$this->_tableDefaultId()."=?";
         $bindType=$this->_determineType($id);
         $stmt=$this->_prepare($sql);
         $stmt->bind_param($bindType,$id);
@@ -347,16 +342,16 @@ class MysqliStmt
         $returnData=$this->_dynamicBindResults($stmt);
         $stmt->free_result();
         $stmt->close();
-        return isset($returnData[0])?$returnData[0]:'';
+        return isset($returnData[0])?$returnData[0]:array();
     }
 
     /**
      * 根据sql语句查询
      * @param string $sql
      * @param array $param
-     * @return array|bool
+     * @return array
      */
-    public function selectSql($sql,$param=array()){
+    public function fetchSql($sql,$param=array()){
         $stmt=$this->_prepare($sql);
         if(!empty($param)&&is_array($param)){
             $paramTmp=array();
@@ -387,27 +382,25 @@ class MysqliStmt
 
     /**
      * 获取行的数量
-     * @param string $table 表名
      * @param array $where 获取行数的条件 数据格式 数组键值为数据库字段，键值对应的值为满足获的条件 类似 array('id'=>'king','name'=>'test')
      * @param string $columnName 列名
      * @return string|int
      */
-    public function selectCount($table,$where=array(),$columnName='*'){
-        $sql="select count(".$columnName.") as count from ".$table;
+    public function getCount($where=array(),$columnName='*'){
+        $sql="select count(".$columnName.") as count from ".$this->_getTableName();
         if(!empty($where)&&is_array($where)){
             //拼装where数据
             $bindType='';
-            $whereData=$this->_andWhere($where);
-            $bindType.=$whereData['bind_type'];
-            $whereStr=$whereData['where_string'];
-            $whereValueArr=$whereData['where_value_arr'];
+            $whereData=$this->andWhere($where);
+            $bindType.=$whereData['bindType'];
+            $whereStr=$whereData['whereStr'];
+            $whereValueArr=$whereData['whereValueArr'];
 
             $sql.=" where ".$whereStr;
             $args[]=$bindType;
-            $parameterTmp=array_merge($args,$whereValueArr);
-            $parameter=self::refValues($parameterTmp);
+            $parameter=array_merge($args,$whereValueArr);
             $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), $parameter);
+            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
             $stmt->execute();
         }else{
             $stmt=$this->_prepare($sql);
@@ -421,77 +414,16 @@ class MysqliStmt
 
     /**
      * 不等于或者大于说着其他操作 直接是字符串
-     * @param string $table 表名
      * @param string $whereString "id>10 or id<3 and name='test'"
      * @param array $getInfo 需要查询出来的字段 无键值的数组 填写需要查询的字段即可 类似 array('id','name')
      * @return array
      */
-    public function selectNotEqualAll($table,$whereString,$getInfo=array('*')){
+    public function notEqualAll($whereString,$getInfo=array('*')){
         if(empty($getInfo)||!is_array($getInfo)){
             $getInfo=array('*');
         }
-        $sql='select '.implode(',',$getInfo).' from '.$table.' where '.$whereString;
+        $sql='select '.implode(',',$getInfo).' from '.$this->_getTableName().' where '.$whereString;
         $stmt=$this->_prepare($sql);
-        $stmt->execute();
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return $returnData;
-    }
-
-    /**
-     * @param $table
-     * @param array $where
-     * @param array $getInfo
-     * @param array $order
-     * @param int $offset
-     * @param int $fetchNum
-     * @param array $orWhere
-     * @return array
-     * @throws Exception
-     */
-    public function selects($table,$where=array(),$order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
-        if(empty($getInfo)||!is_array($getInfo)){
-            $getInfo=array('*');
-        }
-        $sql='select '.implode(',',$getInfo).' from '.$table;
-        $bindType='';
-        $whereValueArr=array();
-        if(!empty($where)){
-            $whereData=$this->_andWhere($where);
-            $bindType.=$whereData['bind_type'];
-            $whereStr=$whereData['where_string'];
-            $whereValueArr=$whereData['where_value_arr'];
-            $sql.=' where '.$whereStr;
-        }
-        $whereOrValueArr=array();
-        if(!empty($orWhere)){
-            $orWhereData=$this->_orWhere($orWhere);
-            $bindType.=$orWhereData['bind_type'];
-            $whereOrStr=$orWhereData['where_string'];
-            $whereOrValueArr=$orWhereData['where_value_arr'];
-            $sql.=' or '.$whereOrStr;
-        }
-        if(!empty($order)){
-            $orderArr=array();
-            foreach($order as $orderKey=>$rowOrder){
-                $orderArr[]=$orderKey.' '.$rowOrder;
-            }
-            $sql.=' order by '.implode(',',$orderArr);
-        }
-        if($fetchNum>0&&$offset>=0){
-            $sql.=' limit '.$offset.','.$fetchNum;
-        }
-        if(empty($whereValueArr)&&empty($whereOrValueArr)){
-            $stmt=$this->_prepare($sql);
-        }else{
-            $args[]=$bindType;
-            $bindData=array_merge($whereValueArr,$whereOrValueArr);
-            $parameterTmp=array_merge($args,$bindData);
-            $parameter=self::refValues($parameterTmp);
-            $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), $parameter);
-        }
         $stmt->execute();
         $returnData=$this->_dynamicBindResults($stmt);
         $stmt->free_result();
@@ -503,25 +435,26 @@ class MysqliStmt
      * 开始事务
      * @return bool
      */
-    /*public function beginTransaction(){
+    public function beginTransaction(){
         return $this->link->autocommit(false);
-    }*/
+    }
 
     /**
      * 提交事务
      * @return bool
      */
-    /*public function commitTransaction(){
+    public function commitTransaction(){
         return $this->link->commit();
-    }*/
+    }
 
     /**
      * 事务回滚
      * @return bool
      */
-    /*public function rollbackTransaction(){
+    public function rollbackTransaction(){
         return $this->link->rollback();
-    }*/
+    }
+
 
     /**
      * 参数化查询初始化参数
@@ -529,7 +462,7 @@ class MysqliStmt
      * @param  array $data
      * @return array
      */
-     protected static function refValues($data){
+    static private function refValues($data){
         $refs=array();
         foreach($data as $key=>$value){
             $refs[]=&$data[$key];
@@ -539,7 +472,7 @@ class MysqliStmt
 
     /**
      * 获取参数传递类型
-     * @link   https://github.com/joshcam/PHP-MySQLi-Database-Class/tree/v1.1
+     * @link   https://github.com/joshcam/PHP-mysqli-Database-Class/tree/v1.1
      * @version   1.1
      * @param $dataType
      * @return string
@@ -566,9 +499,9 @@ class MysqliStmt
 
     /**
      * 取得结果集
-     * @link   https://github.com/joshcam/PHP-MySQLi-Database-Class/tree/v1.1
+     * @link   https://github.com/joshcam/PHP-mysqli-Database-Class/tree/v1.1
      * @version   1.1
-     * @param \mysqli_stmt $stmt
+     * @param mysqli_stmt $stmt
      * @return array
      */
     protected function _dynamicBindResults($stmt)
@@ -595,7 +528,7 @@ class MysqliStmt
      * @param array $where
      * @return array
      */
-    protected function _andWhere($where){
+    protected function andWhere($where){
         $bindType='';
         $whereKeyArr=array();
         $whereValueArr=array();
@@ -610,9 +543,9 @@ class MysqliStmt
         }
         $whereStr=substr($whereStrTmp,0,-4);
         $returnData=array(
-            'bind_type'=>$bindType,
-            'where_value_arr'=>$whereValueArr,
-            'where_string'=>$whereStr
+            'bindType'=>$bindType,
+            'whereValueArr'=>$whereValueArr,
+            'whereStr'=>$whereStr
         );
         return $returnData;
     }
@@ -621,9 +554,8 @@ class MysqliStmt
      * or 条件数据拼装
      * @param array $where
      * @return array
-     * @throws Exception
      */
-    protected function _orWhere($where){
+    protected function orWhere($where){
         $bindType='';
         $whereKeyArr=array();
         $whereValueArr=array();
@@ -638,9 +570,9 @@ class MysqliStmt
         }
         $whereStr=substr($whereStrTmp,0,-3);
         $returnData=array(
-            'bind_type'=>$bindType,
-            'where_value_arr'=>$whereValueArr,
-            'where_string'=>$whereStr
+            'bindType'=>$bindType,
+            'whereValueArr'=>$whereValueArr,
+            'whereStr'=>$whereStr
         );
         return $returnData;
     }
@@ -652,32 +584,11 @@ class MysqliStmt
      * @throws Exception
      */
     protected function _prepare($sql){
-        $stmt=$this->link->prepare($sql);
-        if (!$stmt){
-            $msg=$this->link->error . " --SQL语句: " . $sql;
+        $stmt = $this->link->prepare($sql);
+        if (!$stmt) {
+            $msg = $this->link->error . " --SQL语句: " . $sql;
             throw new Exception($msg);
         }
         return $stmt;
-    }
-
-    /**
-     * 显示sql语句函数
-     * @param $sql
-     * @param null $parameter
-     */
-    protected function _printSql($sql,$parameter=null){
-        $parameterStr='';
-        if(!empty($parameter)&&is_array($parameter)){
-            foreach($parameter as $key=>$values){
-                if($key==0){
-                    $parameterStr.='参数类型为：'.$parameter[$key].';';
-                }else{
-                    $parameterStr.='   参数 '.$key.' 为：'.$parameter[$key].';';
-                }
-            }
-            echo $sql.'  --'.$parameterStr;
-        }else{
-            echo $sql;
-        }
     }
 }

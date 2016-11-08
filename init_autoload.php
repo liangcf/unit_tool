@@ -9,6 +9,6 @@
 const _BASE_PATH=__DIR__;
 
 //开发使用的工具
-include _BASE_PATH . '/library/dev/function.php';
+include _BASE_PATH . '/libs/dev/function.php';
 
-require _BASE_PATH . '/library/config/include.list.php';
+require _BASE_PATH . '/libs/include.list.php';

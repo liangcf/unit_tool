@@ -9,12 +9,13 @@ class logUtils
      * @param string $dir 日志路径
      * @return int
      */
-    public static function log($file,$message,$context,$dir='/logs/'){
-        $dirTmp=_BASE_PATH.$dir;
+    public static function log($file,$message,$context,$dir='logs/'){
+        $rootDir=_BASE_PATH.'/';
+        $dirTmp=$rootDir.$dir;
         if(!is_dir($dirTmp)){
             mkdir($dirTmp,0777,true);
         }
-        $dirTemp=_BASE_PATH.$dir.date('Ymd_H').'/';
+        $dirTemp=$dirTmp.date('Ymd').'/';
         if(!is_dir($dirTemp)){
             mkdir($dirTemp,0777,true);
         }

@@ -21,7 +21,7 @@ class MysqliQuery
      * @throws Exception
      */
     function __construct(){
-        $defaultDb= _BASE_PATH.'/library/config/db.config.php';
+        $defaultDb= _BASE_PATH.'/libs/config/db.config.php';
         $config=$defaultDb['default_db'];
         $conn=new mysqli($config['db_host'],$config['db_user'],$config['db_pwd'],$config['db_name'],$config['port']);
         if($conn->errno){

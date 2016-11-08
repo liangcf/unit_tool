@@ -5,7 +5,7 @@
  *
  */
 
-require '../libs/phpqrcode.php';
+require '../lib/phpqrcode.php';
 
 class qrCodeUtils {
 
