@@ -1,51 +1,39 @@
 #取消不需要上传文件
 
-#img下的图片
-#public/img
+###########################
+#测试
+###########################
 
-#公共部分
-logs
-*!logs/readme.md
-
+###########################
 #shell 日志路径
-shell/logs/
-*!shell/logs/readme.md
+###########################
+shell/logs/*
+!shell/logs/readme.md
 
-# --------------------
-# PhpStorm Files
-# --------------------
-.idea/
+###########################
+# PhpStorm
+###########################
+.idea/*
 
-# --------------------
-# Eclipse Files
-# --------------------
+###########################
+# Eclipse
+###########################
 .buildpath
 .project
 .metadata
 *.bak
 .classpath
-.settings/
+.settings/*
 
-# --------------------
-# Composer Files
-# --------------------
-vendor/composer/
+###########################
+# Composer
+###########################
+vendor/composer/*
 vendor/autoload.php
 
-# --------------------
-# OSX Files
-# --------------------
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-.Spotlight-V100
-.Trashes
-
-# --------------------
+###########################
 # Windows Files
-# --------------------
+###########################
 Thumbs.db
 ehthumbs.db
 Desktop.ini
@@ -56,17 +44,13 @@ $RECYCLE.BIN/
 *.msp
 *.lnk
 
-# --------------------
-# Sublime Text Files
-# --------------------
+###########################
+# Sublime Text
+###########################
 *.sublime-project
 *.sublime-workspace
 
-# --------------------
-# IntelliJ Files
-# --------------------
-*.iml
-*.ipr
-*.iws
-.idea/
-out/
+###########################
+# Netbeans
+###########################
+nbproject/*

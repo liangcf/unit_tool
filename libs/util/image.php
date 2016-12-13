@@ -5,7 +5,9 @@
  * Date: 2016/3/1
  * Time: 17:15
  */
-class  image{
+
+namespace util;
+class  Image{
 
     //图片基本信息
     private $info;

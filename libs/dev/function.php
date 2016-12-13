@@ -5,7 +5,7 @@
  * Date: 2016/9/20
  * Time: 14:38
  */
-header("Content-Type:text/html;charset=utf-8");
+
 function p($var){
     $phpRunMode=php_sapi_name();
     if(stristr('cli',$phpRunMode)){
@@ -63,6 +63,7 @@ function _var($var){
         print_r($var);
     }
 }
+//$runTime=$_SERVER['REQUEST_TIME'];
 function currentTime(){
     list($usec, $sec) = explode(" ", microtime());
     return ((float)$usec + (float)$sec);

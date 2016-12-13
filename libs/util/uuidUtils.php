@@ -5,7 +5,8 @@
  * @author Jason
  *
  */
-class uuidUtils {
+namespace util;
+class UuidUtils {
 
 	/**
 	 * sha265算法的安全值，用于计算字符串的摘要
@@ -65,7 +66,7 @@ class uuidUtils {
 	public static function uuid($prefix=null)
 	{
 		// mt_rand() 马特赛特旋转演算法，可以快速产生高质量的伪随机数，修正了古老随机数产生算法的很多缺陷
-		return self::create_uuid_md5($prefix);
+		return strtolower(md5(uniqid($prefix . mt_rand(), true)));
 	}
 	
 }
