@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+</head>
+<style>
+</style>
+<body>
+<h1 onclick="copyToClipboard('测试成功');">测试成功</h1>
+<button id="copy-button" data-clipboard-text="这是复制的1" title="Click to copy me.">Copy to Clipboard</button>
+<button id="copy-buttons" data-clipboard-text="这是复制的2" title="Click to copy me.">Copy to Clipboards</button>
+</body>
+</html>
+<script src="../js/common/jquery-2.2.4.min.js"></script>
+<script src="ZeroClipboard.min.js"></script>
+<script>
+    ZeroClipboard.config( { swfPath: '/cp/ZeroClipboard.swf' } );//设置路径
+    $(function(){
+        var client = new ZeroClipboard( $("#copy-button") );
+
+        client.on( "ready", function( readyEvent ) {
+            // alert( "ZeroClipboard SWF is ready!" );
+
+            client.on( "aftercopy", function( event ) {
+                // `this` === `client`
+                // `event.target` === the element that was clicked
+//                event.target.style.display = "none";
+                alert("Copied text to clipboard: " + event.data["text/plain"] );
+            } );
+        } );
+
+        var clients = new ZeroClipboard( $("#copy-buttons") );
+        clients.setText("万能复制");
+        /*clients.on( "ready", function( readyEvent ) {
+            // alert( "ZeroClipboard SWF is ready!" );
+
+            clients.on( "aftercopy", function( event ) {
+                // `this` === `client`
+                // `event.target` === the element that was clicked
+//                event.target.style.display = "none";
+                alert("Copied text to clipboard: " + event.data["text/plain"] );
+            } );
+        } );*/
+    })
+
+</script>

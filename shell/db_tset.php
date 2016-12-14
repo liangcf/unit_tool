@@ -6,7 +6,7 @@
  * Time: 22:01
  */
 
-$config= include "../libs/config/run.config.php";
+$config= include "../lib/config/run.config.php";
 
 $config=$config['default_db'];
 $char=$config['db_char_set'];

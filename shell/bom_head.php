@@ -7,12 +7,8 @@
  */
 
 /*移除bom头*/
-if (isset($_GET['dir'])){ //config the basedir
-    $basedir=$_GET['dir'];
-}else{
-    $basedir = '../';
-}
 
+$basedir = '..';
 $auto = 1;
 
 checkdir($basedir);
@@ -22,10 +18,9 @@ function checkdir($basedir){
         while (($file = readdir($dh)) !== false) {
             if ($file != '.' && $file != '..'){
                 if (!is_dir($basedir."/".$file)) {
-                    echo "filename
- $basedir/$file ".checkBOM("$basedir/$file")." <br>";
+                    echo 'filename -- '. $basedir.'/'.$file .checkBOM($basedir.'/'.$file);
                 }else{
-                    $dirname = $basedir."/".$file;
+                    $dirname = $basedir.'/'.$file;
                     checkdir($dirname);
                 }
             }
@@ -44,12 +39,12 @@ function checkBOM ($filename) {
         if ($auto == 1) {
             $rest = substr($contents, 3);
             rewrite ($filename, $rest);
-            return ("<font color=red>BOM found, automatically removed.</font>");
+            return ("\r\n\r\n BOM found, automatically removed. \r\n\r\n");
         } else {
-            return ("<font color=red>BOM found.</font>");
+            return ("\r\n\r\n BOM found \r\n\r\n");
         }
     }
-    else return ("BOM Not Found.");
+    else return ("\r\n\r\n BOM Not Found \r\n\r\n");
 }
 
 function rewrite ($filename, $data) {
