@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>wangEditor2 test</title>
+    <link rel="stylesheet" type="text/css" href="../dist/css/wangEditor.min.css">
+    <style type="text/css">
+        #editor-trigger {
+            height: 400px;
+            /*max-height: 500px;*/
+        }
+        .container {
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+        }
+    </style>
+</head>
+<body style="padding:0 20px;">
+    <p>wangEditor2.0 支持 IE8 浏览器</p>
+    <div id="editor-container" class="container">
+        <div id="editor-trigger"><p>请输入内容</p></div>
+        <!-- <textarea id="editor-trigger" style="display:none;">
+            <p>请输入内容...</p>
+        </textarea> -->
+    </div>
+    <p><br></p>
+
+    <script type="text/javascript" src="../dist/js/lib/jquery-1.10.2.min.js"></script>
+    <script type="text/javascript" src="../dist/js/wangEditor.js"></script>
+    <script type="text/javascript" src="../dist/js/custom-menu.js"></script>
+    <!--<script type="text/javascript" src="../dist/js/custom-menus.js"></script>-->
+    <script type="text/javascript">
+        var editor = new wangEditor('editor-trigger');
+        editor.config.menus = [
+            'bold',
+            'underline',
+            'italic',
+            'strikethrough',
+            'eraser',
+            'forecolor',
+            'bgcolor',
+            '|',
+            'quote',
+            'fontfamily',
+            'fontsize',
+            'head',
+            'unorderlist',
+            'orderlist',
+            'alignleft',
+            'aligncenter',
+            'alignright',
+            '|',
+            'indent',
+            'link',
+            'unlink',
+            'table',
+            '|',
+            'img',
+            'video',
+            'insertcode',
+            '|',
+            'undo',
+            'redo',
+            'fullscreen'
+        ];
+        // 上传图片
+        editor.config.uploadImgUrl = '/test.php';
+        editor.config.uploadImgFileName = 'name';
+        // 自定义load事件
+        editor.config.uploadImgFns.onload = function (resultText, xhr) {
+            // resultText 服务器端返回的text
+            // xhr 是 xmlHttpRequest 对象，IE8、9中不支持
+            console.log('-----------------');
+            // 上传图片时，已经将图片的名字存在 editor.uploadImgOriginalName
+            var originalName = editor.uploadImgOriginalName || '';
+
+            // 如果 resultText 是图片的url地址，可以这样插入图片：
+            editor.command(null, 'insertHtml', '<img src="' + resultText + '" alt="' + originalName + '" style="max-width:100%;"/>');
+            // 如果不想要 img 的 max-width 样式，也可以这样插入：
+            // editor.command(null, 'InsertImage', resultText);
+        };
+
+        // 自定义timeout事件
+        editor.config.uploadImgFns.ontimeout = function (xhr) {
+            // xhr 是 xmlHttpRequest 对象，IE8、9中不支持
+            alert('上传超时');
+        };
+
+        // 自定义error事件
+        editor.config.uploadImgFns.onerror = function (xhr) {
+            // xhr 是 xmlHttpRequest 对象，IE8、9中不支持
+            alert('上传错误');
+        };
+
+        editor.create();
+    </script>
+</body>
+</html>

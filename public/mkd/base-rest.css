@@ -1,0 +1,153 @@
+/*
+在css中推荐使用中文字体的英文表示法，以下附常见中文字体的英文名：
+
+华文细黑：STHeiti Light [STXihei]
+华文黑体：STHeiti
+华文楷体：STKaiti
+华文宋体：STSong
+华文仿宋：STFangsong
+黑 Pro：LiHei Pro Medium
+宋 Pro：LiSong Pro Light
+楷：BiauKai
+果中黑：Apple LiGothic Medium
+果宋：Apple LiSung Light
+Windows的一些：
+新明：PMingLiU
+明：MingLiU
+楷：DFKai-SB
+黑体：SimHei
+宋体：SimSun
+新宋体：NSimSun
+仿宋：FangSong
+楷体：KaiTi
+仿宋_GB2312：FangSong_GB2312
+楷体_GB2312：KaiTi_GB2312
+微正黑：Microsoft JhengHei
+微软雅黑体：Microsoft YaHei
+装Office会生出来的一些：
+
+隶书：LiSu
+幼圆：YouYuan
+华文细黑：STXihei
+华文楷体：STKaiti
+华文宋体：STSong
+华文中宋：STZhongsong
+华文仿宋：STFangsong
+方正舒体：FZShuTi
+方正姚体：FZYaoti
+华文彩云：STCaiyun
+华文琥珀：STHupo
+华文隶书：STLiti
+华文行楷：STXingkai
+华文新魏：STXinwei
+
+注：如果字体的名称是一个单词的，不需要加引号，否则在ie6，7里面会失效，并且后面的样式也会不生效！
+*/
+
+
+@charset "UTF-8";
+html {
+    font-size: 14px;
+    background: #ffffff;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+body {
+    font: 14px "Microsoft YaHei",Simsun,sans-serif,Tahoma,Arial,Helvetica;
+    line-height: 1.42857143;
+
+    background: #ffffff;
+}
+a,body{
+    color: #333333;
+}
+blockquote,body,dd,div,dl,dt,fieldset,form,h1,h2,h3,h4,h5,h6,input,li,ol,p,pre,td,textarea,th,ul {
+    margin: 0;
+    padding: 0;
+    word-break: break-all;
+}
+
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+abbr,acronym,fieldset,img {
+    border: 0;
+}
+
+address,caption,cite,code,dfn,em,strong,th,var {
+    font-family: normal;
+    /*font-weight: 400;*/
+}
+
+dd,dl,dt,li,ol,ul {
+    list-style: none;
+}
+
+caption,th {
+    text-align: left;
+}
+
+em,i {
+    font-style: normal
+}
+
+a,article,aside,dd,div,dl,dt,h1,h2,h3,h4,h5,h6,header,hgroup,input,li,nav,p,section,span,td,th,tr,ul {
+    -webkit-tap-highlight-color: transparent;
+    appearance: none
+}
+
+article,aside,header,hgroup,nav,section {
+    display: block
+}
+
+input[type=checkbox],input[type=radio] {
+    cursor: pointer
+}
+
+/*****************************************************************************************/
+
+* {
+    padding: 0;
+    margin: 0;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+*:before,*:after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+input,button,select,textarea {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    outline: none;
+}
+
+a{
+    /*color: #337ab7;*/
+    text-decoration: none;
+}
+
+a:link,a:visited,a:hover{
+    text-decoration:none;  /*超链接无下划线*/
+}
+
+figure {
+    margin: 0;
+}
+
+img {
+    vertical-align: middle;
+}
+
+hr {
+    margin-top: 0;
+    margin-bottom: 0;
+    border: 0;
+    border-top: 1px solid #eeeeee;
+}

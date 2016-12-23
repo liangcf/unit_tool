@@ -17,7 +17,7 @@ function checkdir($basedir){
     if ($dh = opendir($basedir)) {
         while (($file = readdir($dh)) !== false) {
             if ($file != '.' && $file != '..'){
-                if (!is_dir($basedir."/".$file)) {
+                if (!is_dir($basedir.'/'.$file)) {
                     echo 'filename -- '. $basedir.'/'.$file .checkBOM($basedir.'/'.$file);
                 }else{
                     $dirname = $basedir.'/'.$file;

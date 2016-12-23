@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="base-rest.min.css" rel="stylesheet">
+    <link href="bootstrap.min.css" rel="stylesheet">
+    <style>
+        #textarea{
+            display: block;
+            overflow: hidden;
+            width: 600px;
+            font-size: 14px;
+            line-height: 24px;
+            padding: 2px;
+            outline: none;
+            height: 600px;
+            border: 1px solid #fafafa;
+            position: absolute;
+            left: 0;
+            top: 0;
+            resize: none;
+            padding-bottom: 100px;
+        }
+        #preview{
+            border: 1px solid #fafafa;
+            width: 600px;
+            height: 600px;
+            position: absolute;
+            right: 0;
+            top: 0;
+            padding-left: 10px;
+            line-height: 38px;
+        }
+    </style>
+</head>
+<body>
+<!--<button id="test">testb</button>-->
+<div style="width: 1200px;margin: 0 auto;height: 600px;position: relative">
+    <textarea id="textarea" oninput="this.editor.update()">Type **Markdown** here.</textarea>
+    <div id="preview"></div>
+</div>
+<script src="../js/jquery-2.2.4.min.js"></script>
+<script src="markdown.min.js"></script>
+<script>
+    var autoTextarea = function(elem, extra, maxHeight) {
+        extra = extra || 0;
+        var isFirefox = !!document.getBoxObjectFor || 'mozInnerScreenX' in window,
+                isOpera = !!window.opera && !!window.opera.toString().indexOf('Opera'),
+                addEvent = function(type, callback) {
+                    elem.addEventListener ?
+                            elem.addEventListener(type, callback, false) :
+                            elem.attachEvent('on' + type, callback);
+                },
+                getStyle = elem.currentStyle ? function(name) {
+                    var val = elem.currentStyle[name];
+                    if (name === 'height' && val.search(/px/i) !== 1) {
+                        var rect = elem.getBoundingClientRect();
+                        return rect.bottom - rect.top -
+                                parseFloat(getStyle('paddingTop')) -
+                                parseFloat(getStyle('paddingBottom')) + 'px';
+                    };
+                    return val;
+                } : function(name) {
+                    return getComputedStyle(elem, null)[name];
+                },
+                minHeight = parseFloat(getStyle('height'));
+        elem.style.resize = 'none';
+        var change = function() {
+            var scrollTop, height,
+                    padding = 0,
+                    style = elem.style;
+            if (elem._length === elem.value.length) return;
+            elem._length = elem.value.length;
+            if (!isFirefox && !isOpera) {
+                padding = parseInt(getStyle('paddingTop')) + parseInt(getStyle('paddingBottom'));
+            };
+            scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
+            elem.style.height = minHeight + 'px';
+            if (elem.scrollHeight > minHeight) {
+                if (maxHeight && elem.scrollHeight > maxHeight) {
+                    height = maxHeight - padding;
+                    style.overflowY = 'auto';
+                } else {
+                    height = elem.scrollHeight - padding;
+                    style.overflowY = 'hidden';
+                };
+                style.height = height + extra + 'px';
+                scrollTop += parseInt(style.height) - elem.currHeight;
+                document.body.scrollTop = scrollTop;
+                document.documentElement.scrollTop = scrollTop;
+                elem.currHeight = parseInt(style.height);
+            };
+        };
+        addEvent('propertychange', change);
+        addEvent('input', change);
+        addEvent('focus', change);
+        change();
+    };
+    $(function(){
+       $("#test").click(function(){
+           var k=$("#preview").html();
+           console.log(k);
+       });
+    });
+    function Editor(input, preview) {
+        this.update = function () {
+            var text;
+            text=input.value.replace(/\n+/g,function(ns){
+                if(ns.length==1)
+                    return '  '+ns;
+
+                return ns
+            });
+            preview.innerHTML = markdown.toHTML(text);
+        };
+        input.editor = this;
+        this.update();
+    }
+    var _$ = function (id) { return document.getElementById(id); };
+    new Editor(_$("textarea"), _$("preview"));
+
+    var texts = document.getElementById("textarea");
+    autoTextarea(texts);
+</script>
+</body>
+</html>

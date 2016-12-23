@@ -1,14 +1,17 @@
 <?php
 header("Content-Type: text/html; charset=UTF-8");
-require "../lib/ShellRun.php";
+require "../lib/Run.php";
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**********开始之处*****************************************************************************************************************************/
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-p(get_included_files());
-$mysqli=new \db\MysqliQuery();
-$ret=$mysqli->selects('users',array('sex'=>0),array('sort_order'=>'desc'),5,2);
-p($ret);
-//phpinfo();
+if(!isset($_SESSION)){
+    session_start();
+}
+$_SESSION['temp_vl']='liangcf';
+p($_SESSION['temp_vl']);
+//$mysqli=new \db\MysqliQuery();
+//$ret=$mysqli->selects('users',array('sex'=>0),array('sort_order'=>'desc'),5,2);
+//p($ret);
+phpinfo();
 
 //echo date("Y-m-d H:i:s",1478835963);

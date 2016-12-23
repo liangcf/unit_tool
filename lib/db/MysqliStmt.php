@@ -5,7 +5,7 @@
  * User: AF
  * Date: 2016/6/14
  * Time: 22:48
- * @version 1.0.3
+ * @version 1.1.0
  * @function 参数化查询的类
  * 部分代码重复率有点高，还需优化
  */
@@ -16,18 +16,31 @@ class MysqliStmt
      * @var \mysqli
      */
     private $link;
+    private $_keys='';
+    private $_values='';
+    private $_bindType='';
+    private $_wheres='';
+    private $_orWheres='';
+    private $_bindValue=array();
+    private $_sql='';
+    private $_parameter=array();
+    private $_selfErrorNo=6000;//函数本身异常代码
+    private $_funErrorNo=6001;//外界函数异常代码
+    private $_paraErrorNo=6002;//参数异常代码
 
     /**
-     * 初始化数据库连接
+     * @param array $config
      * @throws \Exception
      */
-    function __construct(){
+    function __construct($config=array()){
         if(!$this->link){
-            $defaultDb= require __DIR__. '/../config/run.config.php';
-            $config=$defaultDb['default_db'];
+            if(empty($config)){
+                $defaultDb= require __DIR__ . '/../config/run.config.php';
+                $config=$defaultDb['default_db'];
+            }
             $conn=new \mysqli($config['db_host'],$config['db_user'],$config['db_pwd'],$config['db_name'],$config['port']);
-            if($conn->errno){
-                throw new \Exception('database link failed !please configure the run.config.php file under the config folder --'.$conn->error);
+            if($conn->connect_errno){
+                throw new \Exception('database link failed !please configure the run.config.php file under the config folder --error:'.$conn->error.' --connect_errno:'.$conn->connect_errno);
             }
             $conn->set_charset($config['db_char_set']);
             $this->link=$conn;
@@ -53,32 +66,30 @@ class MysqliStmt
      */
     public function insert($table,$data){
         if(!is_array($data)||empty($data)){
-            throw new \Exception('insert data error!');
+            throw new \Exception('[insert] parameter error!',$this->_paraErrorNo);
         }
-        $keyArr=array();
-        $tmpArr=array();
-        $valueArr=array();
-        $bindType='';
-        foreach ($data as $key=>$value){
-            $keyArr[]=$key;
-            $tmpArr[]='?';
-            $valueArr[]=&$data[$key];
-            $bindType.= $this->_determineType($value);
+        $sql='insert into '.$table;
+        if(!$this->iBand($data)){
+            $this->clear();
+            throw new \Exception('external function [iBand] exception',$this->_funErrorNo);
         }
-        $keyValue=implode(',', $keyArr);
-        $tempWhy=implode(',',$tmpArr);
-        $sql='insert into '.$table.' ('.$keyValue.') values ('.$tempWhy.')';
-        $args[]=$bindType;
-        $parameter=array_merge($args,$valueArr);
-        $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        $stmt->execute();
-        $res=$this->link->affected_rows;
-        $stmt->close();
-        if($res>0){
-            return true;
+        try{
+            $sql.=' ('.$this->_keys.') values ('.$this->_values.')';
+            $args[]=$this->_bindType;
+            $parameter=array_merge($args,$this->_bindValue);
+            $stmt=$this->_prepare($sql);
+            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            $stmt->execute();
+            $affectedRows=$this->link->affected_rows;
+            $stmt->close();
+            $this->clear();
+            if($affectedRows>0){
+                return true;
+            }
+            return false;
+        }catch (\Exception $e){
+            throw new \Exception('self function [insert] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        return false;
     }
 
     /**
@@ -91,31 +102,32 @@ class MysqliStmt
      */
     public function updateId($table,$id,$data){
         if(!is_array($data)||empty($data)){
-            throw new \Exception('updateId function parameter error!');
+            throw new \Exception('[updateId] parameter error!',$this->_paraErrorNo);
         }
-        $keyArr=array();
-        $valueArr=array();
-        $bindType='';
-        foreach ($data as $key=>$value){
-            $keyArr[]=$key.'=? ';
-            $valueArr[]=&$data[$key];
-            $bindType.=$this->_determineType($value);
+        $sql='update '.$table.' set ';
+        if(!$this->uBand($data)){
+            $this->clear();
+            throw new \Exception('external function [uBand] exception',$this->_funErrorNo);
         }
-        $keyValue=implode(',',$keyArr);
-        $sql='update '.$table.' set '.$keyValue.' where id=? ';
-        $bindType.=$this->_determineType($id);
-        $args[]=$bindType;
-        array_push($valueArr,$id);
-        $parameter=array_merge($args,$valueArr);
-        $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        $stmt->execute();
-        $res=$this->link->affected_rows;
-        $stmt->close();
-        if($res>0){
-            return true;
+        try{
+            $sql.=' '.$this->_keys.' where id=? ';
+            $this->_bindType.=$this->_determineType($id);
+            $args[]=$this->_bindType;
+            array_push($this->_bindValue,$id);
+            $parameter=array_merge($args,$this->_bindValue);
+            $stmt=$this->_prepare($sql);
+            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            $stmt->execute();
+            $affectedRows=$this->link->affected_rows;
+            $stmt->close();
+            $this->clear();
+            if($affectedRows>0){
+                return true;
+            }
+            return false;
+        }catch (\Exception $e){
+            throw new \Exception('self function [updateId] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        return false;
     }
 
     /**
@@ -128,37 +140,35 @@ class MysqliStmt
      */
     public function update($table,$data,$where){
         if(!is_array($data)||empty($data)||!is_array($where)||empty($where)){
-            throw new \Exception('update function parameter error!');
+            throw new \Exception('[update] parameter error!',$this->_paraErrorNo);
         }
-        //拼装需要更新的数据
-        $keyArr=array();
-        $valueArr=array();
-        $bindType='';
-        foreach ($data as $key=>$value){
-            $keyArr[]=$key.'=? ';
-            $valueArr[]=&$data[$key];
-            $bindType.=$this->_determineType($value);
+        $sql='update '.$table.' set ';
+        if(!$this->uBand($data)){
+            $this->clear();
+            throw new \Exception('external function [uBand] exception',$this->_funErrorNo);
         }
-        $keyValue=implode(',',$keyArr);
-        //拼装条件更新的数据
-        $whereData=$this->_andWhere($where);
-        $bindType.=$whereData['bind_type'];
-        $whereStr=$whereData['where_string'];
-        $whereValueArr=$whereData['where_value_arr'];
-        //拼装sql语句
-        $sql='update '.$table.' set '.$keyValue.' where '.$whereStr;//print_r($sql);die;
-        $args[]=$bindType;
-        $bindData=array_merge($valueArr,$whereValueArr);
-        $parameter=array_merge($args,$bindData);
-        $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        $stmt->execute();
-        $res=$this->link->affected_rows;
-        $stmt->close();
-        if($res>0){
-            return true;
+        try{
+            $sql.=' '.$this->_keys.' where ';
+            if(!$this->_and($where)){
+                $this->clear();
+                throw new \Exception('external function [_and] exception',$this->_funErrorNo);
+            }
+            $args[]=$this->_bindType;
+            $sql.=' '.$this->_wheres;
+            $parameter=array_merge($args,$this->_bindValue);
+            $stmt=$this->_prepare($sql);
+            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            $stmt->execute();
+            $affectedRows=$this->link->affected_rows;
+            $stmt->close();
+            $this->clear();
+            if($affectedRows>0){
+                return true;
+            }
+            return false;
+        }catch (\Exception $e){
+            throw new \Exception('self function [update] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        return false;
     }
 
     /**
@@ -166,19 +176,24 @@ class MysqliStmt
      * @param string $table 表名
      * @param string $id 需要删除数据的id
      * @return bool
+     * @throws \Exception
      */
     public function deleteId($table,$id){
-        $sql="delete from ".$table." where id=?";
-        $bindType=$this->_determineType($id);
-        $stmt=$this->_prepare($sql);
-        $stmt->bind_param($bindType,$id);
-        $stmt->execute();
-        $res=$this->link->affected_rows;
-        $stmt->close();
-        if($res>0){
-            return true;
+        $sql='delete from '.$table.' where id=?';
+        try{
+            $bindType=$this->_determineType($id);
+            $stmt=$this->_prepare($sql);
+            $stmt->bind_param($bindType,$id);
+            $stmt->execute();
+            $affectedRows=$this->link->affected_rows;
+            $stmt->close();
+            if($affectedRows>0){
+                return true;
+            }
+            return false;
+        }catch (\Exception $e){
+            throw new \Exception('self function [deleteId] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        return false;
     }
 
     /**
@@ -190,28 +205,29 @@ class MysqliStmt
      */
     public function delete($table,$where){
         if(!is_array($where)||empty($where)){
-            throw new \Exception('delete function parameter error!');
+            throw new \Exception('[delete] parameter error!',$this->_paraErrorNo);
         }
-        $bindType='';
-        //拼装条件更新的数据
-        $whereData=$this->_andWhere($where);
-        $bindType.=$whereData['bind_type'];
-        $whereStr=$whereData['where_string'];
-        $whereValueArr=$whereData['where_value_arr'];
-        //sql语句拼装
-        $sql="delete from ".$table." where ".$whereStr;
-
-        $args[]=$bindType;
-        $parameter=array_merge($args,$whereValueArr);
-        $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        $stmt->execute();
-        $res=$this->link->affected_rows;
-        $stmt->close();
-        if($res>0){
-            return true;
+        $sql='delete from '.$table;
+        if(!$this->_and($where)){
+            $this->clear();
+            throw new \Exception('external function [_and] exception',$this->_funErrorNo);
         }
-        return false;
+        try{
+            $sql.=' where '.$this->_wheres;
+            $args[]=$this->_bindType;
+            $parameter=array_merge($args,$this->_bindValue);
+            $stmt=$this->_prepare($sql);
+            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            $stmt->execute();
+            $affectedRows=$this->link->affected_rows;
+            $stmt->close();
+            if($affectedRows>0){
+                return true;
+            }
+            return false;
+        }catch (\Exception $e){
+            throw new \Exception('self function [deleteId] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
+        }
     }
 
     /**
@@ -228,47 +244,45 @@ class MysqliStmt
      */
     public function select($table,$where,$order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
         if(!is_array($where)||empty($where)||!is_array($order)||!is_array($orWhere)){
-            throw new \Exception('select function parameter error!');
+            throw new \Exception('[select] parameter error!',$this->_paraErrorNo);
         }
         if(empty($getInfo)||!is_array($getInfo)){
             $getInfo=array('*');
         }
-        //拼装where数据
-        $bindType='';
-        $whereData=$this->_andWhere($where);
-        $bindType.=$whereData['bind_type'];
-        $whereStr=$whereData['where_string'];
-        $whereValueArr=$whereData['where_value_arr'];
-        $sql='select '.implode(',',$getInfo).' from '.$table.' where '.$whereStr;
-        //拼装orWhere数据
-        $whereOrValueArr=array();
-        if(!empty($orWhere)){
-            $orWhereData=$this->_orWhere($orWhere);
-            $bindType.=$orWhereData['bind_type'];
-            $whereOrStr=$orWhereData['where_string'];
-            $whereOrValueArr=$orWhereData['where_value_arr'];
-            $sql.=' or '.$whereOrStr;
+        $sql='select '.implode(',',$getInfo).' from '.$table;
+        if(!$this->_and($where)){
+            $this->clear();
+            throw new \Exception('external function [_and] exception',$this->_funErrorNo);
         }
-        if(!empty($order)){
-            $orderArr=array();
-            foreach($order as $orderKey=>$rowOrder){
-                $orderArr[]=$orderKey.' '.$rowOrder;
+        try{
+            $sql.=' where '.$this->_wheres;
+
+            if(!empty($orWhere)){
+                if(!$this->_or($orWhere)){
+                    $this->clear();
+                    throw new \Exception('external function [_or] exception',$this->_funErrorNo);
+                }
+                $sql.=' or '.$this->_orWheres;
             }
-            $sql.=' order by '.implode(',',$orderArr);
+            if(!empty($order)){
+                $sql.=' order by '.$this->_order($order);
+            }
+            if($fetchNum>0&&$offset>=0){
+                $sql.=' limit '.$offset.','.$fetchNum;
+            }
+            $args[]=$this->_bindType;
+            $parameter=array_merge($args,$this->_bindValue);
+            $stmt=$this->_prepare($sql);
+            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            $stmt->execute();
+            $returnData=$this->_dynamicBindResults($stmt);
+            $stmt->free_result();
+            $stmt->close();
+            $this->clear();
+            return $returnData;
+        }catch (\Exception $e){
+            throw new \Exception('self function [select] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        if($fetchNum>0&&$offset>=0){
-            $sql.=' limit '.$offset.','.$fetchNum;
-        }
-        $args[]=$bindType;
-        $bindData=array_merge($whereValueArr,$whereOrValueArr);
-        $parameter=array_merge($args,$bindData);
-        $stmt=$this->_prepare($sql);
-        call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        $stmt->execute();
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return $returnData;
     }
 
     /**
@@ -285,122 +299,43 @@ class MysqliStmt
      */
     public function selectAll($table,$order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
         if(!is_array($order)||!is_array($orWhere)){
-            throw new \Exception('selectAll function parameter error!');
+            throw new \Exception('[selectAll] parameter error!',$this->_paraErrorNo);
         }
         if(empty($getInfo)||!is_array($getInfo)){
             $getInfo=array('*');
         }
-        $bindType='';
-        $sql="select ".implode(',',$getInfo).' from '.$table;
-        $whereOrValueArr=array();
-        if(!empty($orWhere)){
-            $retOrData=$this->_orWhere($orWhere);
-            $bindType.=$retOrData['bind_type'];
-            $whereOrStr=$retOrData['where_string'];
-            $whereOrValueArr=$retOrData['where_value_arr'];
-            $sql.=' where '.$whereOrStr;
-        }
-        if(!empty($order)){
-            $orderArr=array();
-            foreach($order as $orderKey=>$rowOrder){
-                $orderArr[]=$orderKey.' '.$rowOrder;
+        try{
+            $sql='select '.implode(',',$getInfo).' from '.$table;
+            if(!empty($orWhere)){
+                if(!$this->_or($orWhere)){
+                    $this->clear();
+                    throw new \Exception('external function [_or] exception',$this->_funErrorNo);
+                }
+                $sql.=' where '.$this->_orWheres;
             }
-            $sql.=' order by '.implode(',',$orderArr);
-        }
-        if($fetchNum>0&&$offset>=0){
-            $sql.=' limit '.$offset.','.$fetchNum;
-        }
-        if(!empty($whereOrValueArr)){
-            $args[]=$bindType;
-            $parameter=array_merge($args,$whereOrValueArr);
-            $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-            $stmt->execute();
-        }else{
-            $stmt=$this->_prepare($sql);
-            $stmt->execute();
-        }
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return $returnData;
-    }
-
-    /**
-     * 根据id查询 返回一维数组或空
-     * @param string $table 表名
-     * @param string $id 获取数据的id
-     * @param array $getInfo 需要查询出来的字段 无键值的数组 填写需要查询的字段即可 类似 array('id','name')
-     * @return array
-     */
-    public function selectId($table,$id,$getInfo=array('*')){
-        if(empty($getInfo)||!is_array($getInfo)){
-            $getInfo=array('*');
-        }
-        $sql="select ".implode(',',$getInfo).' from '.$table." where id=?";
-        $bindType=$this->_determineType($id);
-        $stmt=$this->_prepare($sql);
-        $stmt->bind_param($bindType,$id);
-        $stmt->execute();
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return isset($returnData[0])?$returnData[0]:'';
-    }
-
-    /**
-     * 根据sql语句查询
-     * @param string $sql
-     * @param array $param
-     * @return array|bool
-     */
-    public function query($sql,$param=array()){
-        $stmt=$this->_prepare($sql);
-        if(!empty($param)&&is_array($param)){
-            $paramTmp=array();
-            $bindType='';
-            foreach($param as $key=>$value){
-                $bindType.=$this->_determineType($param[$key]);
-                $paramTmp[]=$param[$key];
+            if(!empty($order)){
+                $sql.=' order by '.$this->_order($order);
             }
-            $args[]=$bindType;
-            $parameter=array_merge($args,$paramTmp);
-            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        }
-        $stmt->execute();
-        if(stristr($sql,'select')){
+            if($fetchNum>0&&$offset>=0){
+                $sql.=' limit '.$offset.','.$fetchNum;
+            }
+            if(empty($this->_bindValue)){
+                $stmt=$this->_prepare($sql);
+            }else{
+                $args[]=$this->_bindType;
+                $parameter=array_merge($args,$this->_bindValue);
+                $stmt=$this->_prepare($sql);
+                call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            }
+            $stmt->execute();
             $returnData=$this->_dynamicBindResults($stmt);
             $stmt->free_result();
             $stmt->close();
+            $this->clear();
             return $returnData;
-        }else{
-            $res=$this->link->affected_rows;
-            $stmt->close();
-            if($res>0){
-                return true;
-            }
-            return false;
+        }catch (\Exception $e){
+            throw new \Exception('self function [selectAll] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-    }
-
-    /**
-     * 不等于或者大于说着其他操作 直接是字符串
-     * @param string $table 表名
-     * @param string $whereString "id>10 or id<3 and name='test'"
-     * @param array $getInfo 需要查询出来的字段 无键值的数组 填写需要查询的字段即可 类似 array('id','name')
-     * @return array
-     */
-    public function selectNotEqualAll($table,$whereString,$getInfo=array('*')){
-        if(empty($getInfo)||!is_array($getInfo)){
-            $getInfo=array('*');
-        }
-        $sql='select '.implode(',',$getInfo).' from '.$table.' where '.$whereString;
-        $stmt=$this->_prepare($sql);
-        $stmt->execute();
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return $returnData;
     }
 
     /**
@@ -419,52 +354,141 @@ class MysqliStmt
         if(empty($getInfo)||!is_array($getInfo)){
             $getInfo=array('*');
         }
-        $sql='select '.implode(',',$getInfo).' from '.$table;
-        $bindType='';
-        $whereValueArr=array();
-        if(!empty($where)){
-            $whereData=$this->_andWhere($where);
-            $bindType.=$whereData['bind_type'];
-            $whereStr=$whereData['where_string'];
-            $whereValueArr=$whereData['where_value_arr'];
-            $sql.=' where '.$whereStr;
-        }
-        $whereOrValueArr=array();
-        if(!empty($orWhere)){
-            $orWhereData=$this->_orWhere($orWhere);
-            $bindType.=$orWhereData['bind_type'];
-            $whereOrStr=$orWhereData['where_string'];
-            $whereOrValueArr=$orWhereData['where_value_arr'];
-            if(empty($where)){
-                $sql.=' where '.$whereOrStr;
+        try{
+            $sql='select '.implode(',',$getInfo).' from '.$table;
+            if(!empty($where)){
+                if(!$this->_and($where)){
+                    $this->clear();
+                    throw new \Exception('external function [_and] exception',$this->_funErrorNo);
+                }
+                $sql.=' where '.$this->_wheres;
+            }
+            if(!empty($orWhere)){
+                if(!$this->_or($orWhere)){
+                    $this->clear();
+                    throw new \Exception('external function [_or] exception',$this->_funErrorNo);
+                }
+                if(empty($where)){
+                    $sql.=' where '.$this->_orWheres;
+                }else{
+                    $sql.=' or '.$this->_orWheres;
+                }
+            }
+            if(!empty($order)){
+                $sql.=' order by '.$this->_order($order);
+            }
+            if($fetchNum>0&&$offset>=0){
+                $sql.=' limit '.$offset.','.$fetchNum;
+            }
+            if(empty($this->_bindValue)){
+                $stmt=$this->_prepare($sql);
             }else{
-                $sql.=' or '.$whereOrStr;
+                $args[]=$this->_bindType;
+                $parameter=array_merge($args,$this->_bindValue);
+                $stmt=$this->_prepare($sql);
+                call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
             }
+            $stmt->execute();
+            $returnData=$this->_dynamicBindResults($stmt);
+            $stmt->free_result();
+            $stmt->close();
+            $this->clear();
+            return $returnData;
+        }catch (\Exception $e){
+            throw new \Exception('self function [selects] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        if(!empty($order)){
-            $orderArr=array();
-            foreach($order as $orderKey=>$rowOrder){
-                $orderArr[]=$orderKey.' '.$rowOrder;
+    }
+
+    /**
+     * 根据id查询 返回一维数组或空
+     * @param string $table 表名
+     * @param string $id 获取数据的id
+     * @param array $getInfo 需要查询出来的字段 无键值的数组 填写需要查询的字段即可 类似 array('id','name')
+     * @return array
+     * @throws \Exception
+     */
+    public function selectId($table,$id,$getInfo=array('*')){
+        if(empty($getInfo)||!is_array($getInfo)){
+            $getInfo=array('*');
+        }
+        $sql='select '.implode(',',$getInfo).' from '.$table.' where id=?';
+        try{
+            $bindType=$this->_determineType($id);
+            $stmt=$this->_prepare($sql);
+            $stmt->bind_param($bindType,$id);
+            $stmt->execute();
+            $returnData=$this->_dynamicBindResults($stmt);
+            $stmt->free_result();
+            $stmt->close();
+            return isset($returnData[0])?$returnData[0]:array();
+        }catch (\Exception $e){
+            throw new \Exception('self function [selectId] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
+        }
+    }
+
+    /**
+     * 根据sql语句查询
+     * @param string $sql
+     * @param array $param
+     * @return array|bool
+     * @throws \Exception
+     */
+    public function query($sql,$param=array()){
+        try{
+            $stmt=$this->_prepare($sql);
+            if(!empty($param)&&is_array($param)){
+                $paramTmp=array();
+                $bindType='';
+                foreach($param as $key=>$value){
+                    $bindType.=$this->_determineType($param[$key]);
+                    $paramTmp[]=$param[$key];
+                }
+                $args[]=$bindType;
+                $parameter=array_merge($args,$paramTmp);
+                call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
             }
-            $sql.=' order by '.implode(',',$orderArr);
+            $stmt->execute();
+            if(stristr($sql,'select')){
+                $returnData=$this->_dynamicBindResults($stmt);
+                $stmt->free_result();
+                $stmt->close();
+                return $returnData;
+            }else{
+                $res=$this->link->affected_rows;
+                $stmt->close();
+                if($res>0){
+                    return true;
+                }
+                return false;
+            }
+        }catch (\Exception $e){
+            throw new \Exception('self function [query] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        if($fetchNum>0&&$offset>=0){
-            $sql.=' limit '.$offset.','.$fetchNum;
+    }
+
+    /**
+     * 不等于或者大于说着其他操作 直接是字符串
+     * @param string $table 表名
+     * @param string $whereString "id>10 or id<3 and name='test'"
+     * @param array $getInfo 需要查询出来的字段 无键值的数组 填写需要查询的字段即可 类似 array('id','name')
+     * @return array
+     * @throws \Exception
+     */
+    public function selectNotEqual($table,$whereString,$getInfo=array('*')){
+        if(empty($getInfo)||!is_array($getInfo)){
+            $getInfo=array('*');
         }
-        if(empty($whereValueArr)&&empty($whereOrValueArr)){
+        try{
+            $sql='select '.implode(',',$getInfo).' from '.$table.' where '.$whereString;
             $stmt=$this->_prepare($sql);
-        }else{
-            $args[]=$bindType;
-            $bindData=array_merge($whereValueArr,$whereOrValueArr);
-            $parameter=array_merge($args,$bindData);
-            $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            $stmt->execute();
+            $returnData=$this->_dynamicBindResults($stmt);
+            $stmt->free_result();
+            $stmt->close();
+            return $returnData;
+        }catch (\Exception $e){
+            throw new \Exception('self function [selectNotEqual] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        $stmt->execute();
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return $returnData;
     }
 
     /**
@@ -482,115 +506,51 @@ class MysqliStmt
      * @throws \Exception
      */
     public function like($table,$stringName,$content,$where=array(),$order=array(),$offset=0,$fetchNum=0,$getInfo=array('*'),$orWhere=array()){
-        if(stristr($content,'_')){
-            $content=str_replace('_', "\\_", $content);
-        }
-        if(stristr($content, '%')){
-            $content=str_replace('%', '', $content);
-        }
-
-        $sql='select '.implode(',',$getInfo).' from '.$table.' where '.$stringName." like '%".$content."%' ";
-        $bindType='';
-        $whereValueArr=array();
-        if(!empty($where)){
-            $whereData=$this->_andWhere($where);
-            $bindType.=$whereData['bind_type'];
-            $whereStr=$whereData['where_string'];
-            $whereValueArr=$whereData['where_value_arr'];
-            $sql.=' and '.$whereStr;
-        }
-        $whereOrValueArr=array();
-        if(!empty($orWhere)){
-            $orWhereData=$this->_orWhere($orWhere);
-            $bindType.=$orWhereData['bind_type'];
-            $whereOrStr=$orWhereData['where_string'];
-            $whereOrValueArr=$orWhereData['where_value_arr'];
-            $sql.=' or '.$whereOrStr;
-        }
-        if(!empty($order)){
-            $orderArr=array();
-            foreach($order as $orderKey=>$rowOrder){
-                $orderArr[]=$orderKey.' '.$rowOrder;
+        try{
+            if(stristr($content,'_')){
+                $content=str_replace('_', "\\_", $content);
             }
-            $sql.=' order by '.implode(',',$orderArr);
-        }
-        if($fetchNum>0&&$offset>=0){
-            $sql.=' limit '.$offset.','.$fetchNum;
-        }
-        if(empty($whereValueArr)&&empty($whereOrValueArr)){
-            $stmt=$this->_prepare($sql);
-        }else{
-            $args[]=$bindType;
-            $bindData=array_merge($whereValueArr,$whereOrValueArr);
-            $parameter=array_merge($args,$bindData);
-            $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        }
-        $stmt->execute();
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return $returnData;
-    }
-
-    /**
-     * 获取单条数据
-     * @param $table
-     * @param array $where
-     * @param array $order
-     * @param array $getInfo
-     * @param array $orWhere
-     * @return array
-     * @throws \Exception
-     */
-    public function get($table,$where=array(),$order=array(),$getInfo=array('*'),$orWhere=array()){
-        if(empty($getInfo)||!is_array($getInfo)){
-            $getInfo=array('*');
-        }
-        $sql='select '.implode(',',$getInfo).' from '.$table;
-        $bindType='';
-        $whereValueArr=array();
-        if(!empty($where)){
-            $whereData=$this->_andWhere($where);
-            $bindType.=$whereData['bind_type'];
-            $whereStr=$whereData['where_string'];
-            $whereValueArr=$whereData['where_value_arr'];
-            $sql.=' where '.$whereStr;
-        }
-        $whereOrValueArr=array();
-        if(!empty($orWhere)){
-            $orWhereData=$this->_orWhere($orWhere);
-            $bindType.=$orWhereData['bind_type'];
-            $whereOrStr=$orWhereData['where_string'];
-            $whereOrValueArr=$orWhereData['where_value_arr'];
-            if(empty($where)){
-                $sql.=' where '.$whereOrStr;
+            if(stristr($content, '%')){
+                $content=str_replace('%', '', $content);
+            }
+            $sql='select '.implode(',',$getInfo).' from '.$table.' where '.$stringName." like '%".$content."%' ";
+            if(!empty($where)){
+                if(!$this->_and($where)){
+                    $this->clear();
+                    throw new \Exception('external function [_and] exception',$this->_funErrorNo);
+                }
+                $sql.=' and '.$this->_wheres;
+            }
+            if(!empty($orWhere)){
+                if(!$this->_or($orWhere)){
+                    $this->clear();
+                    throw new \Exception('external function [_or] exception',$this->_funErrorNo);
+                }
+                $sql.=' and '.$this->_orWheres;
+            }
+            if(!empty($order)){
+                $sql.=' order by '.$this->_order($order);
+            }
+            if($fetchNum>0&&$offset>=0){
+                $sql.=' limit '.$offset.','.$fetchNum;
+            }
+            if(empty($this->_bindValue)){
+                $stmt=$this->_prepare($sql);
             }else{
-                $sql.=' or '.$whereOrStr;
+                $args[]=$this->_bindType;
+                $parameter=array_merge($args,$this->_bindValue);
+                $stmt=$this->_prepare($sql);
+                call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
             }
+            $stmt->execute();
+            $returnData=$this->_dynamicBindResults($stmt);
+            $stmt->free_result();
+            $stmt->close();
+            $this->clear();
+            return $returnData;
+        }catch (\Exception $e){
+            throw new \Exception('self function [like] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        if(!empty($order)){
-            $orderArr=array();
-            foreach($order as $orderKey=>$rowOrder){
-                $orderArr[]=$orderKey.' '.$rowOrder;
-            }
-            $sql.=' order by '.implode(',',$orderArr);
-        }
-        $sql.=' limit 1';
-        if(empty($whereValueArr)&&empty($whereOrValueArr)){
-            $stmt=$this->_prepare($sql);
-        }else{
-            $args[]=$bindType;
-            $bindData=array_merge($whereValueArr,$whereOrValueArr);
-            $parameter=array_merge($args,$bindData);
-            $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        }
-        $stmt->execute();
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return isset($returnData[0])?$returnData[0]:array();
     }
 
     /**
@@ -618,7 +578,7 @@ class MysqliStmt
      */
     public function min($table,$columnName,$where=array(),$orWhere=array()){
         if(empty($columnName)){
-            throw new \Exception('min function parameter error!',1003);
+            throw new \Exception('[min] parameter error!',$this->_paraErrorNo);
         }
         $sql="select min(".$columnName.") as min from ".$table;
         $returnData=$this->_group($sql,$where,$orWhere);
@@ -636,7 +596,7 @@ class MysqliStmt
      */
     public function max($table,$columnName,$where=array(),$orWhere=array()){
         if(empty($columnName)){
-            throw new \Exception('max function parameter error!',1003);
+            throw new \Exception('[max] parameter error!',$this->_paraErrorNo);
         }
         $sql="select max(".$columnName.") as max from ".$table;
         $returnData=$this->_group($sql,$where,$orWhere);
@@ -654,7 +614,7 @@ class MysqliStmt
      */
     public function avg($table,$columnName,$where=array(),$orWhere=array()){
         if(empty($columnName)){
-            throw new \Exception('avg function parameter error!',1003);
+            throw new \Exception('[avg] parameter error!',$this->_paraErrorNo);
         }
         $sql="select avg(".$columnName.") as avg from ".$table;
         $returnData=$this->_group($sql,$where,$orWhere);
@@ -672,7 +632,7 @@ class MysqliStmt
      */
     public function sum($table,$columnName,$where=array(),$orWhere=array()){
         if(empty($columnName)){
-            throw new \Exception('sum function parameter error!',1003);
+            throw new \Exception('[sum] parameter error!',$this->_paraErrorNo);
         }
         $sql="select sum(".$columnName.") as sum from ".$table;
         $returnData=$this->_group($sql,$where,$orWhere);
@@ -687,73 +647,75 @@ class MysqliStmt
      * @return array
      * @throws \Exception
      */
-    private function _group($sql,$where,$orWhere=array()){
-        $bindType='';
-        if(!empty($where)&&is_array($where)){
-            //拼装where数据
-            $whereData=$this->_andWhere($where);
-            $bindType.=$whereData['bind_type'];
-            $whereStr=$whereData['where_string'];
-            $whereValueArr=$whereData['where_value_arr'];
-            $sql.=" where ".$whereStr;
-        }
-        if(!empty($orWhere)){
-            $orWhereData=$this->_orWhere($orWhere);
-            $bindType.=$orWhereData['bind_type'];
-            $whereOrStr=$orWhereData['where_string'];
-            $whereOrValueArr=$orWhereData['where_value_arr'];
-            if(empty($where)){
-                $sql.=' where '.$whereOrStr;
-            }else{
-                $sql.=' or '.$whereOrStr;
+    private function _group($sql,$where=array(),$orWhere=array()){
+        try{
+            if(!empty($where)){
+                if(!$this->_and($where)){
+                    $this->clear();
+                    throw new \Exception('external function [_and] exception',$this->_funErrorNo);
+                }
+                $sql.=' where '.$this->_wheres;
             }
+            if(!empty($orWhere)){
+                if(!$this->_or($orWhere)){
+                    $this->clear();
+                    throw new \Exception('external function [_or] exception',$this->_funErrorNo);
+                }
+                if(empty($where)){
+                    $sql.=' where '.$this->_orWheres;
+                }else{
+                    $sql.=' or '.$this->_orWheres;
+                }
+            }
+            if(empty($this->_bindValue)){
+                $stmt=$this->_prepare($sql);
+            }else{
+                $args[]=$this->_bindType;
+                $parameter=array_merge($args,$this->_bindValue);
+                $stmt=$this->_prepare($sql);
+                call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
+            }
+            $stmt->execute();
+            $returnData=$this->_dynamicBindResults($stmt);
+            $stmt->free_result();
+            $stmt->close();
+            $this->clear();
+            return $returnData;
+        }catch (\Exception $e){
+            throw new \Exception('self function [_group] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        if(empty($whereValueArr)&&empty($whereOrValueArr)){
-            $stmt=$this->_prepare($sql);
-        }else{
-            $args[]=$bindType;
-            $bindData=array_merge($whereValueArr,$whereOrValueArr);
-            $parameter=array_merge($args,$bindData);
-            $stmt=$this->_prepare($sql);
-            call_user_func_array(array($stmt,'bind_param'), self::refValues($parameter));
-        }
-        $returnData=$this->_dynamicBindResults($stmt);
-        $stmt->free_result();
-        $stmt->close();
-        return $returnData;
     }
 
     /**
      * 开始事务
      * @return bool
      */
-    /*public function beginTransaction(){
+    public function beginTransaction(){
         return $this->link->autocommit(false);
-    }*/
+    }
 
     /**
      * 提交事务
      * @return bool
      */
-    /*public function commitTransaction(){
+    public function commitTransaction(){
         return $this->link->commit();
-    }*/
+    }
 
     /**
      * 事务回滚
      * @return bool
      */
-    /*public function rollbackTransaction(){
+    public function rollbackTransaction(){
         return $this->link->rollback();
-    }*/
-
+    }
     /**
      * 参数化查询初始化参数
      * @link http://php.net/manual/zh/mysqli-stmt.bind-param.php
      * @param  array $data
      * @return array
      */
-     protected static function refValues($data){
+    private static function refValues($data){
         $refs=array();
         foreach($data as $key=>$value){
             $refs[]=&$data[$key];
@@ -769,7 +731,7 @@ class MysqliStmt
      * @return string
      * @throws \Exception
      */
-    protected function _determineType($dataType)
+    private function _determineType($dataType)
     {
         switch (gettype($dataType)) {
             case 'string':
@@ -785,7 +747,8 @@ class MysqliStmt
                 return 'd';
                 break;
         }
-        throw new \Exception('parameterized query data error!');
+        throw new \Exception('self function [_determineType] exception ,message: data type not found!',$this->_selfErrorNo);
+
     }
 
     /**
@@ -795,7 +758,7 @@ class MysqliStmt
      * @param \mysqli_stmt $stmt
      * @return array
      */
-    protected function _dynamicBindResults($stmt)
+    private function _dynamicBindResults($stmt)
     {
         $parameters = array();
         $results = array();
@@ -815,93 +778,165 @@ class MysqliStmt
     }
 
     /**
-     * and 条件数据拼装
-     * @param array $where
-     * @return array
-     */
-    protected function _andWhere($where){
-        $bindType='';
-        $whereKeyArr=array();
-        $whereValueArr=array();
-        foreach($where as $keys=>$values){
-            $bindType.=$this->_determineType($values);
-            $whereKeyArr[]=$keys.'=? ';
-            $whereValueArr[]=&$where[$keys];
-        }
-        $whereStrTmp='';
-        foreach($whereKeyArr as $row){
-            $whereStrTmp.=$row.' and ';
-        }
-        $whereStr=substr($whereStrTmp,0,-4);
-        $returnData=array(
-            'bind_type'=>$bindType,
-            'where_value_arr'=>$whereValueArr,
-            'where_string'=>$whereStr
-        );
-        return $returnData;
-    }
-
-    /**
-     * or 条件数据拼装
-     * @param array $where
-     * @return array
-     * @throws \Exception
-     */
-    protected function _orWhere($where){
-        $bindType='';
-        $whereKeyArr=array();
-        $whereValueArr=array();
-        foreach($where as $keys=>$values){
-            $bindType.=$this->_determineType($values);
-            $whereKeyArr[]=$keys.'=? ';
-            $whereValueArr[]=&$where[$keys];
-        }
-        $whereStrTmp='';
-        foreach($whereKeyArr as $row){
-            $whereStrTmp.=$row.' or ';
-        }
-        $whereStr=substr($whereStrTmp,0,-3);
-        $returnData=array(
-            'bind_type'=>$bindType,
-            'where_value_arr'=>$whereValueArr,
-            'where_string'=>$whereStr
-        );
-        return $returnData;
-    }
-
-    /**
      * 验证sql与表的正确性
      * @param $sql
-     * @return mysqli_stmt
+     * @return \mysqli_stmt
      * @throws \Exception
      */
-    protected function _prepare($sql){
-        $stmt=$this->link->prepare($sql);
-        if (!$stmt){
-            $msg=$this->link->error . " --SQL语句: " . $sql;
-            throw new \Exception($msg);
+    private function _prepare($sql){
+        try{
+            $stmt=$this->link->prepare($sql);
+            if (!$stmt){
+                $msg=$this->link->error . " --SQL: " . $sql;
+                throw new \Exception('self function [_prepare] exception ,message: '.$msg,$this->_selfErrorNo);
+            }
+            return $stmt;
+        }catch (\Exception $e){
+            throw new \Exception('self function [_prepare] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
-        return $stmt;
     }
 
     /**
-     * 显示sql语句函数
-     * @param $sql
-     * @param null $parameter
+     * 插入数据绑定参数
+     * @param $data
+     * @return bool
+     * @throws \Exception
      */
-    protected function _printSql($sql,$parameter=null){
-        $parameterStr='';
-        if(!empty($parameter)&&is_array($parameter)){
-            foreach($parameter as $key=>$values){
-                if($key==0){
-                    $parameterStr.='参数类型为：'.$parameter[$key].';';
-                }else{
-                    $parameterStr.='   参数 '.$key.' 为：'.$parameter[$key].';';
-                }
+    private function iBand($data){
+        try{
+            $keyArr=array();
+            $tmpArr=array();
+            $valueArr=array();
+            foreach ($data as $key=>$value){
+                $keyArr[]=$key;
+                $tmpArr[]='?';
+                $valueArr[]=&$data[$key];
+                $this->_bindType.= $this->_determineType($value);
             }
-            echo $sql.'  --'.$parameterStr;
-        }else{
-            echo $sql;
+            $this->_keys=implode(',', $keyArr);
+            $this->_values=implode(',',$tmpArr);
+            $this->_bindValue=$valueArr;
+            return true;
+        }catch (\Exception $e){
+            throw new \Exception('self function [iBand] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
         }
+    }
+
+    /**
+     * 更新数据绑定参数
+     * @param $data
+     * @return bool
+     * @throws \Exception
+     */
+    private function uBand($data){
+        try{
+            $keyArr=array();
+            $valueArr=array();
+            foreach ($data as $key=>$value){
+                $keyArr[]=$key.'=? ';
+                $valueArr[]=&$data[$key];
+                $this->_bindType.=$this->_determineType($value);
+            }
+            $this->_keys=implode(',',$keyArr);
+            $this->_bindValue=$valueArr;
+            return true;
+        }catch (\Exception $e){
+            throw new \Exception('self function [uBand] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
+        }
+    }
+
+    /**
+     * 防止数据重复清楚数据
+     */
+    private function clear(){
+        $this->_keys='';
+        $this->_values='';
+        $this->_bindType='';
+        $this->_wheres='';
+        $this->_orWheres='';
+        $this->_bindValue=array();
+        /*unset($this->_keys);
+        unset($this->_values);
+        unset($this->_bindType);
+        unset($this->_bindValue);
+        unset($this->_wheres);
+        unset($this->_orWheres);*/
+//        unset($this->_sql);
+//        unset($this->_parameter);
+    }
+
+    /**
+     * and 条件数据拼装
+     * @param $where
+     * @return bool
+     * @throws \Exception
+     */
+    private function _and($where){
+        try{
+            $whereKeyArr=array();
+            $whereValueArr=array();
+            foreach($where as $keys=>$values){
+                $this->_bindType.=$this->_determineType($values);
+                $whereKeyArr[]=$keys.'=? ';
+                $whereValueArr[]=&$where[$keys];
+            }
+            $whereStrTmp='';
+            foreach($whereKeyArr as $row){
+                $whereStrTmp.=$row.' and ';
+            }
+            $this->_wheres=substr($whereStrTmp,0,-4);
+            if(!empty($this->_bindValue)){
+                $this->_bindValue=array_merge($this->_bindValue,$whereValueArr);
+            }else{
+                $this->_bindValue=$whereValueArr;
+            }
+            return true;
+        }catch (\Exception $e){
+            throw new \Exception('self function [_and] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
+        }
+    }
+
+    /**
+     * or条件数据拼装
+     * @param $orWhere
+     * @return bool
+     * @throws \Exception
+     */
+    private function _or($orWhere){
+        try{
+            $whereKeyArr=array();
+            $whereValueArr=array();
+            foreach($orWhere as $keys=>$values){
+                $this->_bindType.=$this->_determineType($values);
+                $whereKeyArr[]=$keys.'=? ';
+                $whereValueArr[]=&$orWhere[$keys];
+            }
+            $whereStrTmp='';
+            foreach($whereKeyArr as $row){
+                $whereStrTmp.=$row.' or ';
+            }
+            $this->_orWheres=substr($whereStrTmp,0,-3);
+            if(!empty($this->_bindValue)){
+                $this->_bindValue=array_merge($this->_bindValue,$whereValueArr);
+            }else{
+                $this->_bindValue=$whereValueArr;
+            }
+            return true;
+        }catch (\Exception $e){
+            throw new \Exception('self function [_or] exception ,message: <  '.$e->getMessage().'  >',$this->_selfErrorNo);
+        }
+    }
+
+    /**
+     * 排序处理
+     * @param $order
+     * @return string
+     */
+    private function _order($order){
+        $orderArr=array();
+        foreach($order as $orderKey=>$rowOrder){
+            $orderArr[]=$orderKey.' '.$rowOrder;
+        }
+        return implode(',',$orderArr);
     }
 }

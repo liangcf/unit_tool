@@ -36,7 +36,7 @@ function pd($var){
     if(stristr('cli',$phpRunMode)){
         echo "\r\n\r\n------------------------------------------------------------\r\n";
         var_dump($var);
-        echo "------------------------------------------------------------\r\n\r\n";
+        echo "\r\n------------------------------------------------------------\r\n\r\n";
     }else{
         echo '<hr style="border-top: 1px solid #008000">';
         var_dump($var);
@@ -48,7 +48,7 @@ function pde($var){
     if(stristr('cli',$phpRunMode)){
         echo "\r\n\r\n------------------------------------------------------------\r\n";
         var_dump($var);
-        echo "------------------------------------------------------------\r\n\r\n";
+        echo "\r\n------------------------------------------------------------\r\n\r\n";
     }else{
         echo '<hr style="border-top: 1px solid #008000">';
         var_dump($var);
@@ -61,28 +61,5 @@ function _var($var){
         var_dump($var);
     }else{
         print_r($var);
-    }
-}
-//$runTime=$_SERVER['REQUEST_TIME'];
-function currentTime(){
-    list($usec, $sec) = explode(" ", microtime());
-    return ((float)$usec + (float)$sec);
-}
-//返回微秒*100
-function microsecond(){
-    list($microsecond, $timeStamp) = explode(" ", microtime());
-    $microsecond=(float)$microsecond;
-    return $microsecond*1000*1000*100;
-}
-class runTime
-{
-    protected $beginTime;
-    function __construct(){
-        $this->beginTime=microsecond();
-    }
-    //返回毫秒
-    public function finishTime(){
-        $time=round(microsecond() - $this->beginTime);
-        return $time/100000;
     }
 }

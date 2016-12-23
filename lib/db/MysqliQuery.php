@@ -27,8 +27,8 @@ class MysqliQuery
             $defaultDb= require __DIR__. '/../config/run.config.php';//print_r($defaultDb);die;
             $config=$defaultDb['default_db'];
             $conn=new \mysqli($config['db_host'],$config['db_user'],$config['db_pwd'],$config['db_name'],$config['port']);
-            if($conn->errno){
-                throw new \Exception('database link failed !please configure the run.config.php file under the config folder --'.$conn->error);
+            if($conn->connect_errno){
+                throw new \Exception('database link failed !please configure the run.config.php file under the config folder --error:'.$conn->error.' --connect_errno:'.$conn->connect_errno);
             }
             $conn->set_charset($config['db_char_set']);
             $this->link=$conn;

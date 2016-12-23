@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>wangEditor2 test</title>
+    <link rel="stylesheet" type="text/css" href="../dist/css/wangEditor.min.css">
+    <style type="text/css">
+        .container {
+            width: 1190px;
+        }
+        #div1 {
+            width: 100%;
+            height: 300px;
+        }
+    </style>
+</head>
+<body style="padding:0 20px;">
+<button id="testy">获取值</button>
+    <p>wangEditor 多语言 - 自定义菜单</p>
+    <div class="container">
+        <div id="div1">
+            <p>请输入内容222</p>
+        </div>
+    </div>
+
+
+    <script type="text/javascript" src="./../../js/jquery-2.2.4.min.js"></script>
+    <script type="text/javascript" src="../dist/js/wangEditor.min.js"></script>
+    <script type="text/javascript" src="../dist/js/highlight.min.js"></script>
+
+    <script type="text/javascript">
+        $(function () {
+            
+            var editor = new wangEditor('div1');
+
+            // 自定义菜单
+            editor.config.menus = [
+                'bold',
+                'underline',
+                'italic',
+                'strikethrough',
+                'eraser',
+                'forecolor',
+                'bgcolor',
+                '|',
+                'quote',
+                'fontfamily',
+                'fontsize',
+                'head',
+                'unorderlist',
+                'orderlist',
+                'alignleft',
+                'aligncenter',
+                'alignright',
+                '|',
+                'link',
+                'unlink',
+                'table',
+                '|',
+                'img',
+                'video',
+                'insertcode',
+                '|',
+                'undo',
+                'redo',
+                'fullscreen'
+            ];
+            /*editor.onchange = function () {
+                console.log(this.$txt.html());
+            };*/
+            editor.create();
+
+            $("#testy").click(function(){
+                console.log(editor.$txt.html());
+            });
+
+        });
+    </script>
+</body>
+</html>

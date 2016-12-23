@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+<p>请输入内容</p><p><br></p><pre style="max-width:100%;overflow-x:auto;"><code class="php hljs" codemark="1"><span class="hljs-meta">&lt;?php</span>
+<span class="hljs-comment">/**
+ * Created by PhpStorm.
+ * User: AF
+ * Date: 2016/9/19
+ * Time: 16:49
+ * url: http://git.oschina.net/liangcf/ufoahc
+ * url: https://github.com/liangcf/ufoahc
+ */</span>
+
+
+    <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AutoLoadClass</span></span>{
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> $class_Map=<span class="hljs-keyword">array</span>();
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> $_dirPath=<span class="hljs-keyword">__DIR__</span>.<span class="hljs-string">'/'</span>;
+
+    <span class="hljs-comment">/**
+     * 自动加载函数
+     * <span class="hljs-doctag">@param</span> $class
+     * <span class="hljs-doctag">@return</span> bool
+     */</span>
+    <span class="hljs-keyword">static</span> <span class="hljs-keyword">public</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">loader</span><span class="hljs-params">($class)</span></span>{
+    <span class="hljs-keyword">if</span>(class_exists($class,<span class="hljs-keyword">false</span>)){
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-comment">//反斜线转正斜线</span>
+    $class=str_replace(<span class="hljs-string">'\\'</span>,<span class="hljs-string">'/'</span>,$class);
+    $file=<span class="hljs-keyword">self</span>::$_dirPath.<span class="hljs-string">'/'</span>.$class.<span class="hljs-string">'.php'</span>;
+    <span class="hljs-keyword">if</span>(<span class="hljs-keyword">isset</span>(<span class="hljs-keyword">self</span>::$class_Map[$class])){
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-keyword">if</span>(is_file($file)){
+    <span class="hljs-keyword">self</span>::$class_Map[$class]=$class;
+    <span class="hljs-keyword">include</span> $file;
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>;
+    }
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+    }
+    }</code></pre><p><br></p><p><br></p><p><br></p>
+</body>
+</html>

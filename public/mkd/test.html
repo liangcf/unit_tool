@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div id="preview"><p>Type <strong>Markdown</strong> here.</p>
+
+<pre><code>public function indexAction() {
+    $meetId=$this-&gt;getParamValue('meet_id');
+    $meetName=$this-&gt;getMeetName($meetId);
+    if(empty($meetId)){
+    return array();
+    exit('写什么提示来着，meet_id为空');
+    }
+    $indexService=new IndexService();
+    $liveTimeRet=$indexService-&gt;liveTime($meetId);
+
+    if($liveTimeRet==1){
+    $cameraInfoRet=$indexService-&gt;getLive($meetId);
+    if(empty($cameraInfoRet)){
+    return array();
+    exit('没有直播');
+    }
+    $liveUrl=$cameraInfoRet['usr_live_url'];
+    }elseif ($liveTimeRet==2){
+    $cameraInfoRet=$indexService-&gt;getRecorded($meetId);
+    if(empty($cameraInfoRet)){
+    return array();
+    exit('没有录播');
+    }
+    $liveUrl="http".$cameraInfoRet['history_live'].".m3u8";
+    }else{
+    return array();
+    exit('直播时间已经过期或者没有直播，也不知道提示什么东东');
+    }
+    $liveInfo=$indexService-&gt;getLiveInfo($meetId);
+    $redisConfig=$this-&gt;getConfigValue('redis');
+    $web_socket=$this-&gt;getConfigValue('web_socket');
+    $wsUrl = 'ws://'.$web_socket['host'].':'.$web_socket['port'];
+
+    $userNo=$this-&gt;initUserNo($redisConfig,$meetId);
+
+    $pageSize=$this-&gt;getConfigValue('page_size');
+    $totalPage=$indexService-&gt;msgTotalPage($meetId,$pageSize);
+
+    $oceamallUrl = $this-&gt;getConfigValue('oceanmall_url') . '/web/index/livecart';
+
+    $startTime = isset($liveInfo['start_time']) ? $liveInfo['start_time'] : 'xxxx-xx-xx xx-xx-xx';
+    $startTime = substr($startTime, 0, 10);
+    //分享配置
+    $shareConfig['title'] = $meetName;
+    $shareConfig['description'] = $meetName.'('.$startTime.')'.'，邀您一起围观！';
+    $host = rtrim($this-&gt;getConfigValue('nh_live_url'), '/');
+    $config = $this-&gt;getConfigValue('share_config');
+    $shareConfig['pic'] = $host.$config['pic'];
+
+    return array(
+    'content' =&gt; array(),
+    'meet_id'=&gt;$meetId,
+    'live_info'=&gt;$liveInfo,
+    'camera_info'=&gt;$cameraInfoRet,
+    'user_no'=&gt;$userNo,
+    'ws_url'=&gt;$wsUrl,
+    'live_url'=&gt;$liveUrl,
+    'total_page'=&gt;$totalPage,
+    'name'=&gt;$meetName,
+    'oceanmall_url' =&gt; $oceamallUrl,
+    'last_date' =&gt; date('Y-m-d H:i:s'),
+    'share_config' =&gt; $shareConfig
+    );
+    }  </code></pre>
+
+    <h1>这欸是标题是</h1>
+
+    <p>我也不阿杜啊但是覅写什么股i<br>啊的就罚款司机的罚款司机的发咯松井大辅啊松井大辅啊咯松井大辅啊数据库的飞机啊是的空间裂缝<br>啊雕刻技法ask劳动纠纷ask京东方快离开老家啊大师疯狂练级啊士大夫看见啊；松井大辅；啊就是打开</p>
+
+    <p>ask打飞机啊是就看了电视剧发生的咖啡机啊科技时代减肥空间撒撒旦解放 啊是的空间<br><code>kfjgskdfjskdfjskdjfskdjk</code>  </p></div>
+<script src="markdown.min.js"></script>
+</body>
+</html>
